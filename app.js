@@ -243,10 +243,54 @@ const App = {
     notify('💻 Demo mode – single device only', 'warning');
   },
 
+  /* ─── Session Persistence ──────────────────────────── */
+  _saveSession() {
+    sessionStorage.setItem('ws_session', JSON.stringify({
+      roomCode:   State.roomCode,
+      playerId:   State.playerId,
+      playerName: State.playerName,
+      isHost:     State.isHost,
+    }));
+  },
+
+  _clearSession() {
+    sessionStorage.removeItem('ws_session');
+  },
+
+  /* Attempt to silently rejoin after a page reload */
+  async _restoreSession() {
+    const raw = sessionStorage.getItem('ws_session');
+    if (!raw) return false;
+    let session;
+    try { session = JSON.parse(raw); } catch { App._clearSession(); return false; }
+
+    const { roomCode, playerId, playerName, isHost } = session;
+    if (!roomCode || !playerId) { App._clearSession(); return false; }
+
+    // Verify room + player still exist in Firebase
+    const room = await dbGet(roomCode);
+    if (!room || !room.players?.[playerId]) {
+      App._clearSession();
+      notify('Your session expired. Room no longer exists.', 'warning');
+      return false;
+    }
+
+    // Restore state
+    State.roomCode   = roomCode;
+    State.playerId   = playerId;
+    State.playerName = playerName;
+    State.isHost     = isHost;
+
+    App._listenRoom(roomCode);
+    notify('👋 Reconnected to your room!', 'success');
+    return true;
+  },
+
   /* ─── Home ─────────────────────────────────────────── */
   goHome() {
     if (State.listenerOff) { State.listenerOff(); State.listenerOff = null; }
     App._stopTimer();
+    App._clearSession();
     State.roomCode   = null;
     State.playerId   = null;
     State.isHost     = false;
@@ -296,6 +340,7 @@ const App = {
 
     try {
       await dbSet(code, roomData);
+      App._saveSession();
       App._listenRoom(code);
       showScreen('lobby');
       notify('🏠 Room created! Code: ' + code, 'success');
@@ -336,6 +381,7 @@ const App = {
 
     try {
       await dbSet(`${code}/players/${State.playerId}`, playerData);
+      App._saveSession();
       App._listenRoom(code);
       showScreen('lobby');
       notify('🎮 Joined room ' + code + '!', 'success');
@@ -1155,6 +1201,7 @@ document.getElementById('room-code-input').addEventListener('input', function() 
       }
       State.db = firebase.database();
       notify('🔥 Firebase connected!', 'success');
+      App._restoreSession();
       return; // done – skip modal entirely
     } catch (e) {
       console.warn('FIREBASE_CONFIG init failed:', e.message);
@@ -1173,6 +1220,7 @@ document.getElementById('room-code-input').addEventListener('input', function() 
         firebase.initializeApp({ apiKey, projectId, databaseURL: dbUrl, authDomain: `${projectId}.firebaseapp.com` });
       }
       State.db = firebase.database();
+      App._restoreSession(); // rejoin room if reloaded mid-game
       // Silent success – no modal needed
     } catch (e) {
       modal('firebase', true);
