@@ -1,0 +1,8 @@
+[build]
+  # Runs before publishing — generates config.js from Netlify env vars
+  command = "node generate-config.js"
+  # The folder Netlify serves (index.html is in root)
+  publish = "."
+
+[build.environment]
+  NODE_VERSION = "18"

@@ -1,0 +1,6 @@
+# Firebase config — contains real API keys, never commit this
+config.js
+.env
+
+# Node
+node_modules/

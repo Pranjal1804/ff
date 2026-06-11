@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Word Suspect 🔍 – Social Deduction Party Game</title>
+  <meta name="description" content="Word Suspect is a fun social deduction party game for groups. Find the impostor who has a different secret word!" />
+  <link rel="stylesheet" href="style.css" />
+  <!-- Firebase SDK -->
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+</head>
+<body>
+
+<!-- Animated Background -->
+<div class="bg-canvas">
+  <div class="bg-blob"></div>
+  <div class="bg-blob"></div>
+  <div class="bg-blob"></div>
+</div>
+<div class="floating-shapes" id="floating-shapes"></div>
+
+<!-- Notification area -->
+<div id="notification"></div>
+
+<!-- Confetti container -->
+<div id="confetti-container"></div>
+
+<!-- ============================================================
+     APP ROOT
+     ============================================================ -->
+<div id="app">
+
+  <!-- ========== SCREEN: HOME ========== -->
+  <div id="screen-home" class="screen active">
+    <div class="logo-area" style="margin-bottom:24px;">
+      <span class="logo-icon">🔍</span>
+      <h1 class="logo-title">Word Suspect</h1>
+      <p class="logo-sub">The social deduction word party game</p>
+    </div>
+
+    <div class="card glow" style="max-width:420px;text-align:center;">
+      <p style="color:var(--text-muted);font-size:0.95rem;font-weight:600;margin-bottom:24px;line-height:1.6;">
+        Find the <strong style="color:#ef4444;">impostor</strong> who was given a 
+        <em>different</em> secret word. Give clues, discuss, and vote!
+      </p>
+      <div class="home-buttons">
+        <button class="btn btn-primary btn-lg" onclick="App.showCreateRoom()">
+          🏠 Host Game
+        </button>
+        <button class="btn btn-secondary btn-lg" onclick="App.showJoinRoom()">
+          🎮 Join Game
+        </button>
+      </div>
+    </div>
+
+    <div style="display:flex;gap:24px;margin-top:28px;flex-wrap:wrap;justify-content:center;max-width:600px;">
+      <div class="card" style="flex:1;min-width:160px;text-align:center;padding:20px;">
+        <div style="font-size:2rem;margin-bottom:6px;">👥</div>
+        <div style="font-weight:800;margin-bottom:4px;">Unlimited Players</div>
+        <div style="font-size:0.8rem;color:var(--text-muted);">Perfect for large groups & events</div>
+      </div>
+      <div class="card" style="flex:1;min-width:160px;text-align:center;padding:20px;">
+        <div style="font-size:2rem;margin-bottom:6px;">🎭</div>
+        <div style="font-weight:800;margin-bottom:4px;">3 Round Types</div>
+        <div style="font-size:0.8rem;color:var(--text-muted);">Objects, Animals & Chaos!</div>
+      </div>
+      <div class="card" style="flex:1;min-width:160px;text-align:center;padding:20px;">
+        <div style="font-size:2rem;margin-bottom:6px;">⚡</div>
+        <div style="font-weight:800;margin-bottom:4px;">Real-time Sync</div>
+        <div style="font-size:0.8rem;color:var(--text-muted);">Everyone stays in sync live</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SCREEN: CREATE ROOM ========== -->
+  <div id="screen-create" class="screen">
+    <div class="logo-area" style="margin-bottom:16px;">
+      <span style="font-size:3rem;">🏠</span>
+      <h2 style="font-family:var(--font-display);font-size:2rem;margin-top:6px;">Create a Room</h2>
+    </div>
+    <div class="card glow" style="max-width:440px;">
+      <div class="input-group">
+        <label class="input-label" for="host-name-input">Your Name (Host)</label>
+        <input class="input-field" id="host-name-input" type="text" placeholder="e.g. Pranjal" maxlength="20" autocomplete="off" />
+      </div>
+      <button class="btn btn-primary btn-block btn-lg" onclick="App.createRoom()" style="margin-top:8px;">
+        🚀 Create Room
+      </button>
+      <button class="btn btn-ghost btn-block" onclick="App.goHome()" style="margin-top:10px;">
+        ← Back
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== SCREEN: JOIN ROOM ========== -->
+  <div id="screen-join" class="screen">
+    <div class="logo-area" style="margin-bottom:16px;">
+      <span style="font-size:3rem;">🎮</span>
+      <h2 style="font-family:var(--font-display);font-size:2rem;margin-top:6px;">Join a Room</h2>
+    </div>
+    <div class="card glow" style="max-width:440px;">
+      <div class="input-group">
+        <label class="input-label" for="join-name-input">Your Name</label>
+        <input class="input-field" id="join-name-input" type="text" placeholder="e.g. Anjali" maxlength="20" autocomplete="off" />
+      </div>
+      <div class="input-group">
+        <label class="input-label" for="room-code-input">Room Code</label>
+        <input class="input-field" id="room-code-input" type="text" placeholder="e.g. ABCD" maxlength="6" 
+               style="text-transform:uppercase;letter-spacing:6px;font-size:1.4rem;text-align:center;" autocomplete="off" />
+      </div>
+      <button class="btn btn-secondary btn-block btn-lg" onclick="App.joinRoom()" style="margin-top:8px;">
+        🎮 Join Room
+      </button>
+      <button class="btn btn-ghost btn-block" onclick="App.goHome()" style="margin-top:10px;">
+        ← Back
+      </button>
+    </div>
+  </div>
+
+  <!-- ========== SCREEN: LOBBY ========== -->
+  <div id="screen-lobby" class="screen">
+    <div class="card glow" style="width:100%;">
+      <div class="lobby-header">
+        <div>
+          <h2 style="font-family:var(--font-display);font-size:1.8rem;margin-bottom:4px;">Game Lobby</h2>
+          <div class="status-bar" style="display:inline-flex;">
+            <div class="status-dot"></div>
+            <span id="lobby-status-text">Waiting for players...</span>
+          </div>
+        </div>
+        <div class="room-code-badge">
+          <div class="room-code-label">Room Code</div>
+          <div class="room-code-value" id="lobby-room-code">----</div>
+          <button class="btn btn-ghost btn-sm" onclick="App.copyRoomCode()" style="margin-top:4px;font-size:0.7rem;">📋 Copy</button>
+        </div>
+      </div>
+
+      <div class="divider"></div>
+
+      <div class="section-title">👥 Players (<span id="player-count">0</span>)</div>
+      <div class="players-grid" id="lobby-players-grid"></div>
+
+      <!-- HOST SETTINGS -->
+      <div id="host-settings-panel" style="display:none;">
+        <div class="divider"></div>
+        <div class="settings-panel">
+          <div class="settings-title">⚙️ Game Settings</div>
+          
+          <div class="settings-row">
+            <label>Impostor Mode</label>
+            <div class="toggle-wrapper">
+              <span style="font-size:0.85rem;color:var(--text-muted);">Random</span>
+              <label class="toggle">
+                <input type="checkbox" id="manual-impostor-toggle" onchange="App.toggleImpostorMode()" />
+                <span class="toggle-slider"></span>
+              </label>
+              <span style="font-size:0.85rem;color:var(--text-muted);">Manual</span>
+            </div>
+          </div>
+
+          <div class="settings-row">
+            <label>Timer Duration</label>
+            <select class="select-field" id="timer-duration-select" onchange="App.updateTimerDuration()">
+              <option value="120">2 min</option>
+              <option value="180">3 min</option>
+              <option value="300" selected>5 min</option>
+              <option value="420">7 min</option>
+              <option value="600">10 min</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- Manual impostor selector -->
+        <div id="manual-impostor-panel" style="display:none;">
+          <div class="settings-panel">
+            <div class="settings-title">🎯 Select Impostor</div>
+            <p style="font-size:0.85rem;color:var(--text-muted);margin-bottom:12px;">Choose who gets the different word</p>
+            <div class="impostor-select-grid" id="impostor-select-grid"></div>
+          </div>
+        </div>
+
+        <div class="divider"></div>
+        <div style="display:flex;gap:10px;flex-wrap:wrap;">
+          <button class="btn btn-primary btn-lg" onclick="App.startGame()" id="start-game-btn">
+            ▶ Start Game
+          </button>
+          <button class="btn btn-danger btn-sm" onclick="App.resetGame()">
+            🔄 Reset
+          </button>
+        </div>
+      </div>
+
+      <!-- PLAYER WAITING VIEW -->
+      <div id="player-waiting-panel">
+        <div class="divider"></div>
+        <div class="waiting-player-view">
+          <div class="waiting-spinner">
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+            <div class="spinner-dot"></div>
+          </div>
+          <p class="waiting-note">Waiting for the host to start the game...</p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SCREEN: GAME ========== -->
+  <div id="screen-game" class="screen">
+
+    <!-- Round Banner -->
+    <div class="card" style="text-align:center;padding:16px 24px;">
+      <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;">
+        <div id="round-badge-container"></div>
+
+        <div class="attempt-counter">
+          <span class="attempt-label">Attempts:</span>
+          <div class="attempt-dot" id="dot-1"></div>
+          <div class="attempt-dot" id="dot-2"></div>
+          <div class="attempt-dot" id="dot-3"></div>
+        </div>
+
+        <div id="game-stage-badge"></div>
+      </div>
+    </div>
+
+    <!-- Timer + Word Side by Side -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;width:100%;" class="game-top-grid">
+      
+      <!-- Timer Card -->
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <div class="section-title">⏱ Discussion Timer</div>
+        <div class="timer-container" style="padding:12px;">
+          <div class="timer-ring">
+            <svg class="timer-svg" viewBox="0 0 180 180">
+              <circle class="timer-track" cx="90" cy="90" r="78"/>
+              <circle class="timer-progress" id="timer-circle" cx="90" cy="90" r="78"/>
+            </svg>
+            <div class="timer-display">
+              <div class="timer-time" id="timer-display">5:00</div>
+              <div class="timer-label">remaining</div>
+            </div>
+          </div>
+          <div id="timer-warning" style="min-height:28px;text-align:center;margin-top:4px;"></div>
+        </div>
+
+        <!-- Host Timer Controls -->
+        <div id="host-timer-controls" style="display:none;gap:8px;flex-wrap:wrap;justify-content:center;margin-top:8px;display:flex;">
+          <button class="btn btn-ghost btn-sm" onclick="App.pauseTimer()" id="btn-pause-timer">⏸ Pause</button>
+          <button class="btn btn-ghost btn-sm" onclick="App.resetTimer()">🔄 Reset</button>
+        </div>
+      </div>
+
+      <!-- Word Card -->
+      <div class="card" style="display:flex;flex-direction:column;align-items:center;justify-content:center;">
+        <div class="section-title">🤫 Your Secret Word</div>
+        <div class="word-card card glow" id="word-card" onclick="App.revealWord()">
+          <div class="word-hidden-state">
+            <span class="word-hidden-icon">🔒</span>
+            <p class="word-reveal-hint">Tap to reveal your word</p>
+          </div>
+          <div class="word-revealed-state" style="display:none;">
+            <div class="word-reveal-label">Your word is</div>
+            <div class="secret-word" id="secret-word-display">???</div>
+            <div id="impostor-notice" style="display:none;" class="impostor-notice">
+              🕵️ YOU ARE THE IMPOSTOR
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Players in Game -->
+    <div class="card" style="width:100%;">
+      <div class="section-title">👥 Players This Round</div>
+      <div class="game-players-list" id="game-players-list"></div>
+    </div>
+
+    <!-- Host Game Controls -->
+    <div class="card" id="host-game-controls" style="display:none;width:100%;">
+      <div class="section-title">🎮 Host Controls</div>
+      <div class="host-controls">
+        <button class="btn btn-primary" onclick="App.openVoting()">🗳️ Open Voting</button>
+        <button class="btn btn-warning" onclick="App.skipRound()">⏭ Skip Round</button>
+        <button class="btn btn-danger" onclick="App.resetRound()">🔄 Reset Round</button>
+        <button class="btn btn-ghost btn-sm" onclick="App.resetGame()">⛔ Full Reset</button>
+      </div>
+    </div>
+
+    <!-- Player Voting Banner (non-host) -->
+    <div id="player-game-banner" class="card" style="display:none;width:100%;text-align:center;">
+      <div class="waiting-spinner">
+        <div class="spinner-dot"></div>
+        <div class="spinner-dot"></div>
+        <div class="spinner-dot"></div>
+      </div>
+      <p style="color:var(--text-muted);font-weight:700;margin-top:8px;" id="player-game-status-text">
+        Discuss your clues with the group!
+      </p>
+    </div>
+  </div>
+
+  <!-- ========== SCREEN: VOTING ========== -->
+  <div id="screen-voting" class="screen">
+    <div class="card glow" style="width:100%;">
+      <div style="text-align:center;margin-bottom:16px;">
+        <div style="font-size:2.5rem;margin-bottom:6px;">🗳️</div>
+        <h2 style="font-family:var(--font-display);font-size:2rem;">Vote for the Impostor!</h2>
+        <div class="attempt-counter" style="justify-content:center;margin-top:8px;">
+          <span class="attempt-label">Attempt</span>
+          <div class="attempt-dot" id="vote-dot-1"></div>
+          <div class="attempt-dot" id="vote-dot-2"></div>
+          <div class="attempt-dot" id="vote-dot-3"></div>
+        </div>
+      </div>
+
+      <div id="voting-my-status" class="status-bar" style="justify-content:center;margin:8px auto;max-width:200px;">
+        <div class="status-dot" style="background:#f59e0b;"></div>
+        <span>Choosing...</span>
+      </div>
+
+      <div class="vote-instruction" id="vote-instruction">Tap a player you suspect is the impostor:</div>
+
+      <div class="vote-grid" id="vote-grid"></div>
+
+      <div style="display:flex;justify-content:center;margin-top:20px;">
+        <button class="btn btn-primary btn-lg" id="btn-submit-vote" onclick="App.submitVote()" disabled>
+          ✅ Submit Vote
+        </button>
+      </div>
+
+      <div id="vote-tally-preview" style="margin-top:20px;display:none;">
+        <div class="divider"></div>
+        <div class="section-title">📊 Votes So Far (<span id="votes-in-count">0</span>/<span id="votes-total">0</span>)</div>
+        <div id="vote-tally-bars"></div>
+      </div>
+    </div>
+
+    <!-- Host: Reveal results button -->
+    <div class="card" id="host-voting-controls" style="display:none;width:100%;">
+      <div class="section-title">🎮 Host Controls</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-success btn-lg" onclick="App.revealResults()">🎯 Reveal Results!</button>
+        <button class="btn btn-warning" onclick="App.nextAttempt()">⏭ Next Attempt</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========== SCREEN: RESULTS ========== -->
+  <div id="screen-results" class="screen">
+    <!-- Result Banner -->
+    <div class="result-banner" id="result-banner" style="width:100%;">
+      <span class="result-emoji" id="result-emoji">🎉</span>
+      <div class="result-title" id="result-title">Players Win!</div>
+      <div class="result-subtitle" id="result-subtitle">The impostor was caught!</div>
+    </div>
+
+    <!-- Score -->
+    <div class="card" style="width:100%;text-align:center;">
+      <div class="section-title" style="justify-content:center;">🏆 Overall Score</div>
+      <div class="score-board">
+        <div class="score-card players-score">
+          <div class="score-card-label">🧑‍🤝‍🧑 Players Win</div>
+          <div class="score-card-value" id="score-players">0</div>
+        </div>
+        <div class="score-card impostor-score">
+          <div class="score-card-label">🕵️ Impostor Win</div>
+          <div class="score-card-value" id="score-impostor">0</div>
+        </div>
+      </div>
+      <div class="score-progress-row" id="score-progress-row"></div>
+    </div>
+
+    <!-- Impostor Reveal -->
+    <div class="impostor-reveal" style="width:100%;">
+      <div class="impostor-reveal-label">🕵️ The Impostor Was</div>
+      <div class="impostor-reveal-name" id="impostor-reveal-name">???</div>
+    </div>
+
+    <!-- Words Reveal -->
+    <div class="card" style="width:100%;text-align:center;">
+      <div class="section-title" style="justify-content:center;">📝 The Secret Words</div>
+      <div class="words-reveal" id="words-reveal"></div>
+    </div>
+
+    <!-- Vote Results -->
+    <div class="card" style="width:100%;">
+      <div class="section-title">📊 Vote Breakdown</div>
+      <div class="vote-results-list" id="vote-results-list"></div>
+    </div>
+
+    <!-- Next Round / Reset -->
+    <div class="card" id="results-host-controls" style="display:none;width:100%;">
+      <div class="section-title">🎮 What's Next?</div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;">
+        <button class="btn btn-primary btn-lg" onclick="App.nextRound()">▶ Next Round</button>
+        <button class="btn btn-secondary" onclick="App.playAgain()">🔄 Play Again (same round)</button>
+        <button class="btn btn-ghost" onclick="App.resetGame()">⛔ End Game</button>
+      </div>
+    </div>
+
+    <div class="card" id="results-player-wait" style="display:none;width:100%;text-align:center;">
+      <div class="waiting-spinner">
+        <div class="spinner-dot"></div>
+        <div class="spinner-dot"></div>
+        <div class="spinner-dot"></div>
+      </div>
+      <p style="color:var(--text-muted);font-weight:700;margin-top:10px;">Waiting for the host...</p>
+    </div>
+  </div>
+
+</div> <!-- #app -->
+
+<!-- ============================================================
+     MODAL: Firebase Config
+     ============================================================ -->
+<div class="modal-overlay" id="modal-firebase">
+  <div class="modal-box">
+    <div class="modal-title">🔧 Firebase Setup</div>
+    <p class="modal-desc">
+      Word Suspect needs a Firebase Realtime Database to sync players in real time. 
+      Enter your Firebase project config below. 
+      <a href="https://console.firebase.google.com" target="_blank" style="color:var(--accent-purple);">Get yours free →</a>
+    </p>
+    <div class="input-group">
+      <label class="input-label" for="fb-api-key">API Key</label>
+      <input class="input-field" id="fb-api-key" type="text" placeholder="AIzaSy..." autocomplete="off" />
+    </div>
+    <div class="input-group">
+      <label class="input-label" for="fb-project-id">Project ID</label>
+      <input class="input-field" id="fb-project-id" type="text" placeholder="my-project-12345" autocomplete="off" />
+    </div>
+    <div class="input-group">
+      <label class="input-label" for="fb-db-url">Database URL</label>
+      <input class="input-field" id="fb-db-url" type="text" placeholder="https://my-project-default-rtdb.firebaseio.com" autocomplete="off" />
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;margin-top:8px;">
+      <button class="btn btn-primary btn-block btn-lg" onclick="App.initFirebase()">
+        🚀 Connect & Play
+      </button>
+      <button class="btn btn-ghost btn-block" onclick="App.useLocalMode()">
+        💻 Single-Device Demo Mode
+      </button>
+    </div>
+    <p style="font-size:0.78rem;color:var(--text-muted);margin-top:12px;text-align:center;">
+      Your config is stored locally in your browser. We never store or transmit it.
+    </p>
+  </div>
+</div>
+
+<script src="config.js"></script>
+<script src="words.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
