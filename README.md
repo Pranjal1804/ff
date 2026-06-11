@@ -80,3 +80,4 @@ game/
 6. Paste into the game's Firebase Setup modal
 
 Your config is saved in localStorage for future visits.
+# ff
